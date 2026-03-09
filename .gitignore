@@ -1,0 +1,6 @@
+.build/
+MeetMute.app
+MeetMute.app.zip
+.DS_Store
+.swiftpm/
+*.xcodeproj

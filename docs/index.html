@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeetMute - Mute Any Meeting App with One Shortcut</title>
+    <meta name="description" content="MeetMute is a free macOS menu bar app that mutes and unmutes your meeting apps with a single global keyboard shortcut.">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            color: #1d1d1f;
+            background: #fbfbfd;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 80px 0 60px;
+        }
+
+        .hero-icon {
+            width: 128px;
+            height: 128px;
+            margin-bottom: 24px;
+            border-radius: 28px;
+            box-shadow: 0 8px 32px rgba(46, 92, 184, 0.2);
+        }
+
+        h1 {
+            font-size: 44px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 12px;
+        }
+
+        .tagline {
+            font-size: 20px;
+            color: #6e6e73;
+            max-width: 480px;
+            margin: 0 auto 32px;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #4A90D9, #2E5CB8);
+            color: white;
+            text-decoration: none;
+            padding: 14px 36px;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 16px rgba(46, 92, 184, 0.3);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(46, 92, 184, 0.4);
+        }
+
+        .download-note {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #86868b;
+        }
+
+        /* Hotkey display */
+        .hotkey-section {
+            text-align: center;
+            padding: 40px 0;
+        }
+
+        .hotkey {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .key {
+            display: inline-block;
+            background: #f5f5f7;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 18px;
+            font-weight: 600;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", monospace;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            min-width: 44px;
+            text-align: center;
+        }
+
+        .key-plus {
+            font-size: 16px;
+            color: #86868b;
+        }
+
+        .hotkey-label {
+            font-size: 15px;
+            color: #6e6e73;
+        }
+
+        /* Sections */
+        section {
+            padding: 48px 0;
+        }
+
+        h2 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.3px;
+        }
+
+        h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        p {
+            color: #424245;
+            margin-bottom: 16px;
+        }
+
+        /* How it works */
+        .how-it-works {
+            border-top: 1px solid #e8e8ed;
+        }
+
+        .steps {
+            display: grid;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .step {
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .step-number {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #4A90D9, #2E5CB8);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .step-content h3 {
+            margin-bottom: 4px;
+        }
+
+        .step-content p {
+            font-size: 15px;
+            margin-bottom: 0;
+        }
+
+        /* Supported apps */
+        .apps-section {
+            border-top: 1px solid #e8e8ed;
+        }
+
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .app-card {
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .app-card h3 {
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .app-card .shortcut {
+            font-size: 13px;
+            color: #86868b;
+            font-family: "SF Mono", SFMono-Regular, monospace;
+        }
+
+        /* Permissions */
+        .permissions-section {
+            border-top: 1px solid #e8e8ed;
+        }
+
+        .permission-list {
+            margin-top: 24px;
+            display: grid;
+            gap: 20px;
+        }
+
+        .permission {
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .permission h3 {
+            margin-bottom: 8px;
+        }
+
+        .permission-why {
+            font-size: 14px;
+            color: #6e6e73;
+            margin-bottom: 0;
+        }
+
+        .permission-badge {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .badge-required {
+            background: #fde8e8;
+            color: #c53030;
+        }
+
+        .badge-optional {
+            background: #e8f4f8;
+            color: #2b6cb0;
+        }
+
+        /* Gatekeeper note */
+        .gatekeeper {
+            border-top: 1px solid #e8e8ed;
+        }
+
+        .gatekeeper-box {
+            background: #fffbeb;
+            border: 1px solid #f6e05e;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .gatekeeper-box h3 {
+            margin-bottom: 8px;
+        }
+
+        .gatekeeper-box p {
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .gatekeeper-box p:last-child {
+            margin-bottom: 0;
+        }
+
+        .gatekeeper-box code {
+            background: rgba(0,0,0,0.06);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        /* Open source */
+        .opensource {
+            border-top: 1px solid #e8e8ed;
+            text-align: center;
+        }
+
+        .github-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #2E5CB8;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 17px;
+        }
+
+        .github-link:hover {
+            text-decoration: underline;
+        }
+
+        .github-link svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid #e8e8ed;
+            padding: 32px 0;
+            text-align: center;
+            color: #86868b;
+            font-size: 13px;
+        }
+
+        footer a {
+            color: #6e6e73;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Privacy callout */
+        .privacy-note {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .privacy-note h3 {
+            color: #166534;
+            margin-bottom: 8px;
+        }
+
+        .privacy-note p {
+            font-size: 14px;
+            color: #15803d;
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 600px) {
+            .hero { padding: 48px 0 40px; }
+            h1 { font-size: 32px; }
+            .tagline { font-size: 17px; }
+            .app-grid { grid-template-columns: 1fr; }
+            .hotkey { gap: 4px; }
+            .key { padding: 6px 10px; font-size: 15px; min-width: 36px; }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body { background: #1a1a1a; color: #f5f5f7; }
+            p { color: #b0b0b5; }
+            .tagline { color: #98989d; }
+            .download-note { color: #6e6e73; }
+            .key { background: #2a2a2e; border-color: #48484a; color: #f5f5f7; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+            .key-plus { color: #6e6e73; }
+            .hotkey-label { color: #98989d; }
+            h2, h3 { color: #f5f5f7; }
+            .how-it-works, .apps-section, .permissions-section, .gatekeeper, .opensource, footer { border-top-color: #333; }
+            .step-content p { color: #b0b0b5; }
+            .app-card { background: #2a2a2e; }
+            .app-card h3 { color: #f5f5f7; }
+            .app-card .shortcut { color: #98989d; }
+            .permission { background: #2a2a2e; }
+            .permission h3 { color: #f5f5f7; }
+            .permission-why { color: #98989d; }
+            .badge-required { background: #3b1515; color: #fca5a5; }
+            .badge-optional { background: #152a3b; color: #93c5fd; }
+            .gatekeeper-box { background: #2a2510; border-color: #665c20; }
+            .gatekeeper-box h3 { color: #f5f5f7; }
+            .gatekeeper-box p { color: #b0b0b5; }
+            .gatekeeper-box code { background: rgba(255,255,255,0.1); color: #e5e5ea; }
+            .privacy-note { background: #0f2a15; border-color: #1a5c2a; }
+            .privacy-note h3 { color: #86efac; }
+            .privacy-note p { color: #6ee7a0; }
+            .github-link { color: #6eaaff; }
+            footer { color: #6e6e73; }
+            footer a { color: #98989d; }
+            .hero-icon { box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+            .download-btn { box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+            .download-btn:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Hero -->
+    <div class="hero">
+        <div class="container">
+            <img src="icon.svg" alt="MeetMute icon" class="hero-icon">
+            <h1>MeetMute</h1>
+            <p class="tagline">Mute and unmute any meeting app with a single keyboard shortcut. No more hunting for the mute button.</p>
+            <a href="https://github.com/vandot/meetmute/releases/latest" class="download-btn">Download for macOS</a>
+            <p class="download-note">Requires macOS 13 Ventura or later. Free and open source.</p>
+        </div>
+    </div>
+
+    <!-- Hotkey -->
+    <div class="hotkey-section">
+        <div class="container">
+            <div class="hotkey">
+                <span class="key">&#x2303;</span>
+                <span class="key-plus">+</span>
+                <span class="key">&#x2325;</span>
+                <span class="key-plus">+</span>
+                <span class="key">M</span>
+            </div>
+            <p class="hotkey-label">Works from any app, even when your meeting is in the background.</p>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <!-- How it works -->
+        <section class="how-it-works">
+            <h2>How It Works</h2>
+            <p>MeetMute doesn't mute your system microphone. Instead, it sends the meeting app's own mute shortcut directly to it. This means your teammates can see your mute status change in the meeting UI, just as if you clicked the mute button yourself.</p>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Lives in Your Menu Bar</h3>
+                        <p>MeetMute runs quietly in the menu bar. No dock icon, no windows in your way.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>Detects Your Meeting App</h3>
+                        <p>Automatically finds which meeting app is running and remembers the one you used most recently.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Sends the Right Shortcut</h3>
+                        <p>Press <strong>Control + Option + M</strong> from anywhere and MeetMute sends the correct mute shortcut to your meeting app.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Supported apps -->
+        <section class="apps-section">
+            <h2>Supported Apps</h2>
+            <p>MeetMute knows the mute shortcut for each app and sends it directly.</p>
+            <div class="app-grid">
+                <div class="app-card">
+                    <h3>Zoom</h3>
+                    <span class="shortcut">Cmd+Shift+A</span>
+                </div>
+                <div class="app-card">
+                    <h3>Microsoft Teams</h3>
+                    <span class="shortcut">Cmd+Shift+M</span>
+                </div>
+                <div class="app-card">
+                    <h3>Slack Huddles</h3>
+                    <span class="shortcut">Cmd+Shift+Space</span>
+                </div>
+                <div class="app-card">
+                    <h3>Google Meet</h3>
+                    <span class="shortcut">Cmd+D</span>
+                </div>
+                <div class="app-card">
+                    <h3>Webex</h3>
+                    <span class="shortcut">Ctrl+M</span>
+                </div>
+                <div class="app-card">
+                    <h3>Discord</h3>
+                    <span class="shortcut">Cmd+Shift+M</span>
+                </div>
+                <div class="app-card">
+                    <h3>FaceTime</h3>
+                    <span class="shortcut">Cmd+Shift+M</span>
+                </div>
+            </div>
+            <p style="margin-top: 16px; font-size: 14px; color: #86868b;">Google Meet is supported in Safari, Chrome, Arc, and Firefox.</p>
+        </section>
+
+        <!-- Permissions -->
+        <section class="permissions-section">
+            <h2>Permissions</h2>
+            <p>MeetMute needs a few macOS permissions to work. Here's exactly what each one does and why it's needed.</p>
+
+            <div class="permission-list">
+                <div class="permission">
+                    <span class="permission-badge badge-required">Required</span>
+                    <h3>Accessibility</h3>
+                    <p class="permission-why">Needed to listen for the global <strong>Control+Option+M</strong> keyboard shortcut and to send mute keystrokes to meeting apps via System Events. Without this, MeetMute cannot function.</p>
+                </div>
+                <div class="permission">
+                    <span class="permission-badge badge-required">Required</span>
+                    <h3>Automation &mdash; System Events</h3>
+                    <p class="permission-why">MeetMute uses macOS System Events to send keyboard shortcuts to your meeting apps. This is how it presses the mute button on your behalf. Required for all meeting apps.</p>
+                </div>
+                <div class="permission">
+                    <span class="permission-badge badge-optional">Optional</span>
+                    <h3>Automation &mdash; Safari / Chrome / Arc</h3>
+                    <p class="permission-why">Only needed if you use Google Meet in a browser. MeetMute checks if you have a Meet tab open so it can find the right tab and send the mute shortcut to it. If you deny this, browser-based Meet simply won't appear in the menu. Native apps like Zoom and Teams are unaffected.</p>
+                </div>
+                <div class="permission">
+                    <span class="permission-badge badge-optional">Optional</span>
+                    <h3>Notifications</h3>
+                    <p class="permission-why">Used only to notify you if you press the mute shortcut but no meeting app is running. You can safely deny this.</p>
+                </div>
+            </div>
+
+            <div class="privacy-note">
+                <h3>Privacy First</h3>
+                <p>MeetMute never accesses your microphone, never records anything, and never connects to the internet. It only sends keyboard shortcuts to your meeting apps. The source code is fully open for inspection.</p>
+            </div>
+        </section>
+
+        <!-- Gatekeeper -->
+        <section class="gatekeeper">
+            <h2>Installation</h2>
+            <p>MeetMute is distributed as a direct download. Since it's not signed with an Apple Developer ID, macOS Gatekeeper will show a warning the first time you open it.</p>
+            <div class="gatekeeper-box">
+                <h3>Opening MeetMute for the First Time</h3>
+                <p><strong>Option 1:</strong> Right-click (or Control-click) on MeetMute.app and select <strong>Open</strong>. Click <strong>Open</strong> in the dialog that appears.</p>
+                <p><strong>Option 2:</strong> If you see "MeetMute can't be opened", go to <strong>System Settings &gt; Privacy &amp; Security</strong>, scroll down, and click <strong>Open Anyway</strong> next to the MeetMute message.</p>
+                <p><strong>Option 3:</strong> Remove the quarantine attribute via Terminal:<br><code>xattr -d com.apple.quarantine /Applications/MeetMute.app</code></p>
+            </div>
+        </section>
+
+        <!-- Open source -->
+        <section class="opensource">
+            <h2>Open Source</h2>
+            <p style="margin-bottom: 20px;">MeetMute is free and open source. Built with Swift and AppKit.</p>
+            <div style="display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;">
+                <a href="https://github.com/vandot/meetmute" class="github-link">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    View on GitHub
+                </a>
+                <a href="https://ko-fi.com/vandot" class="github-link" style="color: #FF5E5B;">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.881 8.948c-.773-4.085-4.859-4.593-4.859-4.593H.723c-.604 0-.679.798-.679.798s-.082 7.324-.022 11.822c.164 2.424 2.586 2.672 2.586 2.672s8.267-.023 11.966-.049c2.438-.426 2.683-2.566 2.658-3.734 4.352.24 7.422-2.831 6.649-6.916zm-11.062 3.511c-1.246 1.453-4.011 3.76-4.011 3.76s-.121.119-.31.023c-.076-.057-.108-.09-.108-.09-.443-.441-3.368-3.049-4.034-3.954-.709-.965-1.041-2.7-.091-3.71.951-1.01 3.005-1.086 4.363.407 0 0 1.565-1.782 3.468-.963 1.904.82 1.832 3.011.723 4.527zm6.173.478c-.928.116-1.682.028-1.682.028V7.284h1.77s1.971.551 1.971 2.638c0 1.913-.985 2.667-2.059 3.015z"/></svg>
+                    Buy Me a Coffee
+                </a>
+            </div>
+        </section>
+
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>Made by <a href="https://vandot.rs">vandot</a></p>
+        </div>
+    </footer>
+
+</body>
+</html>

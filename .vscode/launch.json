@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:micmute}",
+            "name": "Debug MicMute",
+            "target": "MicMute",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug MicMute"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:micmute}",
+            "name": "Release MicMute",
+            "target": "MicMute",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release MicMute"
+        }
+    ]
+}
