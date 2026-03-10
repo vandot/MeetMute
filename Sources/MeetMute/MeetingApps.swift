@@ -9,14 +9,17 @@ struct MeetingAppDefinition {
     let isBrowserBased: Bool
     // Window title pattern to find (e.g. "Huddle" for Slack)
     let windowPattern: String?
+    // Window title pattern to exclude - finds a window NOT matching this (e.g. for Teams meeting windows)
+    let windowExcludePattern: String?
 
-    init(name: String, bundleIdentifiers: [String], keyCode: CGKeyCode, modifierFlags: CGEventFlags, isBrowserBased: Bool = false, windowPattern: String? = nil) {
+    init(name: String, bundleIdentifiers: [String], keyCode: CGKeyCode, modifierFlags: CGEventFlags, isBrowserBased: Bool = false, windowPattern: String? = nil, windowExcludePattern: String? = nil) {
         self.name = name
         self.bundleIdentifiers = bundleIdentifiers
         self.keyCode = keyCode
         self.modifierFlags = modifierFlags
         self.isBrowserBased = isBrowserBased
         self.windowPattern = windowPattern
+        self.windowExcludePattern = windowExcludePattern
     }
 }
 
@@ -35,7 +38,8 @@ let supportedApps: [MeetingAppDefinition] = [
         name: "Microsoft Teams",
         bundleIdentifiers: ["com.microsoft.teams", "com.microsoft.teams2"],
         keyCode: 0x2E,  // M
-        modifierFlags: [.maskCommand, .maskShift]
+        modifierFlags: [.maskCommand, .maskShift],
+        windowExcludePattern: "Microsoft Teams"
     ),
     MeetingAppDefinition(
         name: "Slack",
@@ -247,6 +251,58 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
                 repeat with w in windows
                     if name of w contains "\(windowPattern)" then
                         perform action "AXRaise" of w
+                        exit repeat
+                    end if
+                end repeat
+            end tell
+        end tell
+        delay 0.2
+        tell application "System Events"
+            tell application process "\(escapedName)"
+                \(keystrokeCmd)
+            end tell
+        end tell
+        delay 0.1
+        -- Restore original state
+        if frontIsTarget and origWindowName is not "" then
+            tell application "System Events"
+                tell application process "\(escapedName)"
+                    repeat with w in windows
+                        if name of w is origWindowName then
+                            perform action "AXRaise" of w
+                            exit repeat
+                        end if
+                    end repeat
+                end tell
+            end tell
+        else
+            tell application frontApp to activate
+        end if
+        """
+    } else if let excludePattern = app.definition.windowExcludePattern {
+        // Find a window that does NOT match the exclude pattern (e.g. Teams meeting window)
+        let escapedExclude = excludePattern.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        script = """
+        set frontApp to path to frontmost application as text
+        set frontIsTarget to (frontApp contains "\(escapedName)")
+        tell application "\(escapedName)" to activate
+        delay 0.3
+        tell application "System Events"
+            tell application process "\(escapedName)"
+                -- Save the current front window before switching
+                set origWindowName to ""
+                if frontIsTarget and (count of windows) > 0 then
+                    set origWindowName to name of front window
+                end if
+
+                -- Find a window that is NOT the main window (likely the meeting window)
+                set foundMeeting to false
+                repeat with w in windows
+                    set wName to name of w
+                    if wName does not contain "\(escapedExclude)" and wName is not "" then
+                        perform action "AXRaise" of w
+                        set foundMeeting to true
                         exit repeat
                     end if
                 end repeat
