@@ -4,21 +4,21 @@
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:micmute}",
-            "name": "Debug MicMute",
-            "target": "MicMute",
+            "cwd": "${workspaceFolder:meetmute}",
+            "name": "Debug MeetMute",
+            "target": "MeetMute",
             "configuration": "debug",
-            "preLaunchTask": "swift: Build Debug MicMute"
+            "preLaunchTask": "swift: Build Debug MeetMute"
         },
         {
             "type": "swift",
             "request": "launch",
             "args": [],
-            "cwd": "${workspaceFolder:micmute}",
-            "name": "Release MicMute",
-            "target": "MicMute",
+            "cwd": "${workspaceFolder:meetmute}",
+            "name": "Release MeetMute",
+            "target": "MeetMute",
             "configuration": "release",
-            "preLaunchTask": "swift: Build Release MicMute"
+            "preLaunchTask": "swift: Build Release MeetMute"
         }
     ]
 }

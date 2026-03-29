@@ -9,17 +9,18 @@ struct MeetingAppDefinition {
     let isBrowserBased: Bool
     // Window title pattern to find (e.g. "Huddle" for Slack)
     let windowPattern: String?
-    // Window title pattern to exclude - finds a window NOT matching this (e.g. for Teams meeting windows)
-    let windowExcludePattern: String?
+    // Switch to the correct window via the app's Window menu by excluding entries
+    // starting with this pattern (e.g. "Chat" for Teams to find the meeting window)
+    let windowMenuExcludePrefix: String?
 
-    init(name: String, bundleIdentifiers: [String], keyCode: CGKeyCode, modifierFlags: CGEventFlags, isBrowserBased: Bool = false, windowPattern: String? = nil, windowExcludePattern: String? = nil) {
+    init(name: String, bundleIdentifiers: [String], keyCode: CGKeyCode, modifierFlags: CGEventFlags, isBrowserBased: Bool = false, windowPattern: String? = nil, windowMenuExcludePrefix: String? = nil) {
         self.name = name
         self.bundleIdentifiers = bundleIdentifiers
         self.keyCode = keyCode
         self.modifierFlags = modifierFlags
         self.isBrowserBased = isBrowserBased
         self.windowPattern = windowPattern
-        self.windowExcludePattern = windowExcludePattern
+        self.windowMenuExcludePrefix = windowMenuExcludePrefix
     }
 }
 
@@ -39,7 +40,7 @@ let supportedApps: [MeetingAppDefinition] = [
         bundleIdentifiers: ["com.microsoft.teams", "com.microsoft.teams2"],
         keyCode: 0x2E,  // M
         modifierFlags: [.maskCommand, .maskShift],
-        windowExcludePattern: "Microsoft Teams"
+        windowMenuExcludePrefix: "Chat"
     ),
     MeetingAppDefinition(
         name: "Slack",
@@ -208,6 +209,7 @@ func browserHasMeetTab(bundleId: String) -> Bool {
 func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
     let escapedName = app.processName.replacingOccurrences(of: "\\", with: "\\\\")
         .replacingOccurrences(of: "\"", with: "\\\"")
+    let bundleId = app.runningApp.bundleIdentifier ?? ""
 
     var modifierParts: [String] = []
     if app.definition.modifierFlags.contains(.maskCommand) { modifierParts.append("command down") }
@@ -223,12 +225,17 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
         keystrokeCmd = "key code \(keyCodeInt) using {\(modifierParts.joined(separator: ", "))}"
     }
 
+    // Use bundle identifier to address processes in System Events
+    // This is more reliable than process name (e.g. Teams' localizedName is
+    // "Microsoft Teams" but System Events process name is "MSTeams")
+    let processTarget = "(first process whose bundle identifier is \"\(bundleId)\")"
+
     let script: String
     if app.definition.isBrowserBased {
         // For browser-based apps, find the Meet tab and switch to it first
         script = buildBrowserScript(
             browserName: escapedName,
-            bundleId: app.runningApp.bundleIdentifier ?? "",
+            bundleId: bundleId,
             keystrokeCmd: keystrokeCmd
         )
     } else if let windowPattern = app.definition.windowPattern {
@@ -240,7 +247,7 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
         tell application "\(escapedName)" to activate
         delay 0.3
         tell application "System Events"
-            tell application process "\(escapedName)"
+            tell \(processTarget)
                 -- Save the current front window before switching
                 set origWindowName to ""
                 if frontIsTarget and (count of windows) > 0 then
@@ -258,7 +265,7 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
         end tell
         delay 0.2
         tell application "System Events"
-            tell application process "\(escapedName)"
+            tell \(processTarget)
                 \(keystrokeCmd)
             end tell
         end tell
@@ -266,7 +273,7 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
         -- Restore original state
         if frontIsTarget and origWindowName is not "" then
             tell application "System Events"
-                tell application process "\(escapedName)"
+                tell \(processTarget)
                     repeat with w in windows
                         if name of w is origWindowName then
                             perform action "AXRaise" of w
@@ -279,30 +286,23 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
             tell application frontApp to activate
         end if
         """
-    } else if let excludePattern = app.definition.windowExcludePattern {
-        // Find a window that does NOT match the exclude pattern (e.g. Teams meeting window)
-        let escapedExclude = excludePattern.replacingOccurrences(of: "\\", with: "\\\\")
+    } else if let excludePrefix = app.definition.windowMenuExcludePrefix {
+        // For apps like Teams where the meeting window is rendered by a WebView
+        // subprocess invisible to accessibility, switch to the correct window via
+        // the app's Window menu (excluding entries like "Chat"), then send keystroke.
+        let escapedExclude = excludePrefix.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
         script = """
         set frontApp to path to frontmost application as text
-        set frontIsTarget to (frontApp contains "\(escapedName)")
-        tell application "\(escapedName)" to activate
-        delay 0.3
         tell application "System Events"
-            tell application process "\(escapedName)"
-                -- Save the current front window before switching
-                set origWindowName to ""
-                if frontIsTarget and (count of windows) > 0 then
-                    set origWindowName to name of front window
-                end if
-
-                -- Find a window that is NOT the main window (likely the meeting window)
-                set foundMeeting to false
-                repeat with w in windows
-                    set wName to name of w
-                    if wName does not contain "\(escapedExclude)" and wName is not "" then
-                        perform action "AXRaise" of w
-                        set foundMeeting to true
+            set frontmost of \(processTarget) to true
+            tell \(processTarget)
+                set windowMenu to menu 1 of menu bar item "Window" of menu bar 1
+                set allItems to every menu item of windowMenu
+                repeat with mi in allItems
+                    set miName to name of mi
+                    if miName is not missing value and miName does not start with "\(escapedExclude)" and miName contains "\(escapedName)" then
+                        click mi
                         exit repeat
                     end if
                 end repeat
@@ -310,34 +310,22 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
         end tell
         delay 0.2
         tell application "System Events"
-            tell application process "\(escapedName)"
+            tell \(processTarget)
                 \(keystrokeCmd)
             end tell
         end tell
         delay 0.1
-        -- Restore original state
-        if frontIsTarget and origWindowName is not "" then
-            tell application "System Events"
-                tell application process "\(escapedName)"
-                    repeat with w in windows
-                        if name of w is origWindowName then
-                            perform action "AXRaise" of w
-                            exit repeat
-                        end if
-                    end repeat
-                end tell
-            end tell
-        else
-            tell application frontApp to activate
-        end if
+        tell application frontApp to activate
         """
     } else {
         script = """
         set frontApp to path to frontmost application as text
-        tell application "\(escapedName)" to activate
+        tell application "System Events"
+            set frontmost of \(processTarget) to true
+        end tell
         delay 0.2
         tell application "System Events"
-            tell application process "\(escapedName)"
+            tell \(processTarget)
                 \(keystrokeCmd)
             end tell
         end tell
