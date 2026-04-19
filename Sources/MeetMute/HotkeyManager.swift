@@ -65,6 +65,15 @@ class HotkeyManager {
 
     static func keyChar(for keyCode: UInt16) -> String {
         switch Int(keyCode) {
+        case kVK_Space: return "Space"
+        case kVK_Return: return "\u{21A9}"
+        case kVK_Tab: return "\u{21E5}"
+        case kVK_Escape: return "\u{238B}"
+        case kVK_Delete: return "\u{232B}"
+        case kVK_LeftArrow: return "\u{2190}"
+        case kVK_RightArrow: return "\u{2192}"
+        case kVK_UpArrow: return "\u{2191}"
+        case kVK_DownArrow: return "\u{2193}"
         case kVK_ANSI_A: return "A"
         case kVK_ANSI_B: return "B"
         case kVK_ANSI_C: return "C"
