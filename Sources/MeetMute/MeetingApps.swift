@@ -1,109 +1,5 @@
 import Cocoa
 
-struct MeetingAppDefinition {
-    let name: String
-    let bundleIdentifiers: [String]
-    let keyCode: CGKeyCode
-    let modifierFlags: CGEventFlags
-    // Browser-based apps (Chrome, Safari, etc.) are lower priority for auto-detect
-    let isBrowserBased: Bool
-    // Window title pattern to find (e.g. "Huddle" for Slack)
-    let windowPattern: String?
-    // Switch to the correct window via the app's Window menu by excluding entries
-    // starting with this pattern (e.g. "Chat" for Teams to find the meeting window)
-    let windowMenuExcludePrefix: String?
-
-    init(name: String, bundleIdentifiers: [String], keyCode: CGKeyCode, modifierFlags: CGEventFlags, isBrowserBased: Bool = false, windowPattern: String? = nil, windowMenuExcludePrefix: String? = nil) {
-        self.name = name
-        self.bundleIdentifiers = bundleIdentifiers
-        self.keyCode = keyCode
-        self.modifierFlags = modifierFlags
-        self.isBrowserBased = isBrowserBased
-        self.windowPattern = windowPattern
-        self.windowMenuExcludePrefix = windowMenuExcludePrefix
-    }
-}
-
-// Key codes reference:
-// A = 0, S = 1, D = 2, F = 3, H = 4, G = 5, Z = 6, X = 7, C = 8, V = 9
-// M = 46
-
-let supportedApps: [MeetingAppDefinition] = [
-    MeetingAppDefinition(
-        name: "Zoom",
-        bundleIdentifiers: ["us.zoom.xos"],
-        keyCode: 0x00,  // A
-        modifierFlags: [.maskCommand, .maskShift]
-    ),
-    MeetingAppDefinition(
-        name: "Microsoft Teams",
-        bundleIdentifiers: ["com.microsoft.teams2"],
-        keyCode: 0x2E,  // M
-        modifierFlags: [.maskCommand, .maskShift]
-    ),
-    MeetingAppDefinition(
-        name: "Microsoft Teams (Classic)",
-        bundleIdentifiers: ["com.microsoft.teams"],
-        keyCode: 0x2E,  // M
-        modifierFlags: [.maskCommand, .maskShift],
-        windowMenuExcludePrefix: "Chat"
-    ),
-    MeetingAppDefinition(
-        name: "Slack",
-        bundleIdentifiers: ["com.tinyspeck.slackmacgap"],
-        keyCode: 0x31,  // Space
-        modifierFlags: [.maskCommand, .maskShift],
-        windowPattern: "Huddle"
-    ),
-    MeetingAppDefinition(
-        name: "Webex",
-        bundleIdentifiers: ["com.webex.meetingmanager", "Cisco-Systems.Spark"],
-        keyCode: 0x2E,  // M
-        modifierFlags: [.maskControl]
-    ),
-    MeetingAppDefinition(
-        name: "Discord",
-        bundleIdentifiers: ["com.hnc.Discord"],
-        keyCode: 0x2E,  // M
-        modifierFlags: [.maskCommand, .maskShift]
-    ),
-    MeetingAppDefinition(
-        name: "FaceTime",
-        bundleIdentifiers: ["com.apple.FaceTime"],
-        keyCode: 0x2E,  // M
-        modifierFlags: [.maskCommand, .maskShift]
-    ),
-    // Browser-based apps last (lower priority for auto-detect)
-    MeetingAppDefinition(
-        name: "Google Meet (Chrome)",
-        bundleIdentifiers: ["com.google.Chrome"],
-        keyCode: 0x02,  // D
-        modifierFlags: [.maskCommand],
-        isBrowserBased: true
-    ),
-    MeetingAppDefinition(
-        name: "Google Meet (Arc)",
-        bundleIdentifiers: ["company.thebrowser.Browser"],
-        keyCode: 0x02,  // D
-        modifierFlags: [.maskCommand],
-        isBrowserBased: true
-    ),
-    MeetingAppDefinition(
-        name: "Google Meet (Safari)",
-        bundleIdentifiers: ["com.apple.Safari"],
-        keyCode: 0x02,  // D
-        modifierFlags: [.maskCommand],
-        isBrowserBased: true
-    ),
-    MeetingAppDefinition(
-        name: "Google Meet (Firefox)",
-        bundleIdentifiers: ["org.mozilla.firefox"],
-        keyCode: 0x02,  // D
-        modifierFlags: [.maskCommand],
-        isBrowserBased: true
-    ),
-]
-
 struct RunningMeetingApp {
     let definition: MeetingAppDefinition
     let runningApp: NSRunningApplication
@@ -244,7 +140,7 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
             bundleId: bundleId,
             keystrokeCmd: keystrokeCmd
         )
-    } else if let windowPattern = app.definition.windowPattern {
+    } else if let windowTitlePrefix = app.definition.windowTitlePrefix {
         // Find a specific window (e.g. Slack Huddle) and raise it before sending keystroke
         // Also save/restore the original window if we're already in this app
         script = """
@@ -262,7 +158,7 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
 
                 -- Raise the specific window to front
                 repeat with w in windows
-                    if name of w contains "\(windowPattern)" then
+                    if name of w contains "\(windowTitlePrefix)" then
                         perform action "AXRaise" of w
                         exit repeat
                     end if

@@ -9,7 +9,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var selectedAppIndex: Int? = nil  // nil = auto-detect
     private let selectedAppKey = "SelectedMeetingApp"
     private var lastActiveMeetingBundleId: String? = nil
-    private let meetingBundleIds: Set<String> = Set(supportedApps.flatMap { $0.bundleIdentifiers })
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (belt and suspenders with LSUIElement)
@@ -220,7 +219,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func appDidActivate(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
               let bundleId = app.bundleIdentifier,
-              meetingBundleIds.contains(bundleId) else { return }
+              allMeetingBundleIds.contains(bundleId) else { return }
         lastActiveMeetingBundleId = bundleId
     }
 
