@@ -44,6 +44,7 @@ class HotkeyManager {
         case .keyDown:
             if event.isARepeat { return }
             keyDownAt = Date()
+            Logger.shared.log("hotkey keyDown")
             onHotkeyTap?()
 
         case .keyUp:
@@ -51,7 +52,10 @@ class HotkeyManager {
             keyDownAt = nil
             let elapsedMs = Int(Date().timeIntervalSince(downAt) * 1000)
             if elapsedMs > holdThresholdMs {
+                Logger.shared.log("hotkey hold release (\(elapsedMs)ms)")
                 onHotkeyHoldRelease?()
+            } else {
+                Logger.shared.log("hotkey tap (\(elapsedMs)ms)")
             }
 
         default:

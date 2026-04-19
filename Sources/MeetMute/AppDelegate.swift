@@ -313,6 +313,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             target = runningApps.first
         }
 
+        if let target = target {
+            let reason: String
+            if prefs.selectedAppBundleId != nil {
+                reason = "user-pick"
+            } else if lastActiveMeetingBundleId != nil {
+                reason = "last-active"
+            } else {
+                reason = "fallback-first"
+            }
+            Logger.shared.log("mute target: \(target.runningApp.bundleIdentifier ?? "?") (\(reason))")
+        } else {
+            Logger.shared.log("mute target: none")
+        }
+
         guard let targetApp = target else {
             showNoAppNotification()
             return

@@ -42,6 +42,8 @@ func findRunningMeetingApps() -> [RunningMeetingApp] {
         }
     }
 
+    let ids = results.map { $0.runningApp.bundleIdentifier ?? "?" }
+    Logger.shared.log("running meeting apps: \(ids.joined(separator: ", "))")
     return results
 }
 

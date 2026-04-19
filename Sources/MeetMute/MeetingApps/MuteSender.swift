@@ -84,9 +84,12 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Result<Void, MuteError> {
     )
     let final = withEscaped.replacingOccurrences(of: "{{KEYSTROKE}}", with: keystroke)
 
+    Logger.shared.log("mute dispatch: \(app.processName) (\(bundleId))")
+
     var error: NSDictionary?
     let result = NSAppleScript(source: final)?.executeAndReturnError(&error)
     if let error = error {
+        Logger.shared.log("mute error: \(error)", level: .error)
         return .failure(mapAppleScriptError(error, appName: app.processName))
     }
     guard result != nil else {
