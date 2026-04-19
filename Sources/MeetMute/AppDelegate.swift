@@ -16,6 +16,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupStatusBar()
         setupAppActivationTracking()
 
+        ScriptBuilder.verifyAllScriptsPresent()
+
         // Trigger system Accessibility permission dialog if not yet trusted
         let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
         AXIsProcessTrustedWithOptions(options)
