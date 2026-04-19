@@ -242,7 +242,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func copyDiagnostics() {
-        // TODO: Task 21
+        let report = DiagnosticsReport.build(
+            hotkeyDisplay: hotkeyManager?.hotkeyDisplayString ?? "<not registered>",
+            holdThresholdMs: prefs.hotkeyHoldThresholdMs,
+            selectedBundleId: prefs.selectedAppBundleId
+        )
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(report, forType: .string)
+
+        let content = UNMutableNotificationContent()
+        content.title = "MeetMute"
+        content.body = "Diagnostics copied to clipboard."
+        let req = UNNotificationRequest(identifier: "diagnostics-copied", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req)
+
+        Logger.shared.log("diagnostics copied")
     }
 
     @objc private func openHotkeyRecorder() {
