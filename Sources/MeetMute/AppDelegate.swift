@@ -9,6 +9,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let prefs = Preferences()
     private var lastActiveMeetingBundleId: String? = nil
     private var accessibilityPollTimer: Timer?
+    private var hotkeyRecorderWindow: HotkeyRecorderWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (belt and suspenders with LSUIElement)
@@ -168,6 +169,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(loginItem)
 
+        let recorderItem = NSMenuItem(title: "Change Hotkey…", action: #selector(openHotkeyRecorder), keyEquivalent: "")
+        recorderItem.target = self
+        menu.addItem(recorderItem)
+
         // Version
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let versionItem = NSMenuItem(title: "MeetMute v\(version)", action: nil, keyEquivalent: "")
@@ -206,6 +211,21 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openBuyMeACoffee() {
         NSWorkspace.shared.open(URL(string: "https://ko-fi.com/vandot")!)
+    }
+
+    @objc private func openHotkeyRecorder() {
+        let window = HotkeyRecorderWindow(
+            initialKeyCode: prefs.hotkeyKeyCode,
+            initialModifiers: NSEvent.ModifierFlags(rawValue: prefs.hotkeyModifiers)
+        ) { [weak self] keyCode, modifiers in
+            guard let self = self else { return }
+            self.prefs.hotkeyKeyCode = keyCode
+            self.prefs.hotkeyModifiers = modifiers.rawValue
+            self.hotkeyManager?.unregister()
+            self.setupHotkey()
+        }
+        hotkeyRecorderWindow = window
+        window.showWindow(nil)
     }
 
     @objc private func quitApp() {
