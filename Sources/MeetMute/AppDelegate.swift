@@ -8,6 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotkeyManager: HotkeyManager?
     private let prefs = Preferences()
     private var lastActiveMeetingBundleId: String? = nil
+    private var accessibilityPollTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (belt and suspenders with LSUIElement)
@@ -26,10 +27,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if AXIsProcessTrusted() {
             setupHotkey()
         } else {
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            accessibilityPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
                 if AXIsProcessTrusted() {
                     self?.setupHotkey()
                     timer.invalidate()
+                    self?.accessibilityPollTimer = nil
                 }
             }
         }
@@ -40,6 +42,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         requestBrowserAutomationPermissions()
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        accessibilityPollTimer?.invalidate()
+        accessibilityPollTimer = nil
     }
 
     // MARK: - Status Bar
