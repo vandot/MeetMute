@@ -181,6 +181,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        let debugItem = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+        let debugMenu = NSMenu()
+
+        let loggingItem = NSMenuItem(
+            title: "Enable Logging",
+            action: #selector(toggleLogging),
+            keyEquivalent: ""
+        )
+        loggingItem.target = self
+        loggingItem.state = Logger.shared.enabled ? .on : .off
+        debugMenu.addItem(loggingItem)
+
+        let diagItem = NSMenuItem(
+            title: "Copy Diagnostics",
+            action: #selector(copyDiagnostics),
+            keyEquivalent: ""
+        )
+        diagItem.target = self
+        debugMenu.addItem(diagItem)
+
+        debugItem.submenu = debugMenu
+        menu.addItem(debugItem)
+
         // Quit
         let quitItem = NSMenuItem(title: "Quit MeetMute", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
@@ -211,6 +234,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openBuyMeACoffee() {
         NSWorkspace.shared.open(URL(string: "https://ko-fi.com/vandot")!)
+    }
+
+    @objc private func toggleLogging() {
+        Logger.shared.setEnabled(!Logger.shared.enabled)
+        Logger.shared.log("logging \(Logger.shared.enabled ? "enabled" : "disabled")")
+    }
+
+    @objc private func copyDiagnostics() {
+        // TODO: Task 21
     }
 
     @objc private func openHotkeyRecorder() {
