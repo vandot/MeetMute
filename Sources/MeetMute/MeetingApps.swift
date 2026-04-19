@@ -37,7 +37,13 @@ let supportedApps: [MeetingAppDefinition] = [
     ),
     MeetingAppDefinition(
         name: "Microsoft Teams",
-        bundleIdentifiers: ["com.microsoft.teams", "com.microsoft.teams2"],
+        bundleIdentifiers: ["com.microsoft.teams2"],
+        keyCode: 0x2E,  // M
+        modifierFlags: [.maskCommand, .maskShift]
+    ),
+    MeetingAppDefinition(
+        name: "Microsoft Teams (Classic)",
+        bundleIdentifiers: ["com.microsoft.teams"],
         keyCode: 0x2E,  // M
         modifierFlags: [.maskCommand, .maskShift],
         windowMenuExcludePrefix: "Chat"
