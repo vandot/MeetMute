@@ -245,8 +245,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Hotkey
 
     private func setupHotkey() {
-        let hk = HotkeyManager()
-        hk.onHotkeyPressed = { [weak self] in
+        let hk = HotkeyManager(
+            keyCode: prefs.hotkeyKeyCode,
+            modifiers: NSEvent.ModifierFlags(rawValue: prefs.hotkeyModifiers),
+            holdThresholdMs: prefs.hotkeyHoldThresholdMs
+        )
+        hk.onHotkeyTap = { [weak self] in
+            self?.toggleMute()
+        }
+        hk.onHotkeyHoldRelease = { [weak self] in
             self?.toggleMute()
         }
         hk.register()
