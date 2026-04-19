@@ -272,7 +272,39 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
 
-        _ = sendMuteKeystroke(to: targetApp)
+        switch sendMuteKeystroke(to: targetApp) {
+        case .success:
+            break
+        case .failure(let err):
+            handleMuteFailure(err)
+        }
+    }
+
+    private func handleMuteFailure(_ err: MuteError) {
+        Logger.shared.log("mute failure: \(err)", level: .error)
+
+        if case .automationDenied(_, let isSysEvents) = err, isSysEvents {
+            showAutomationAlert(message: err.userMessage)
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "MeetMute"
+        content.body = err.userMessage
+        let req = UNNotificationRequest(identifier: "mute-failure", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req)
+    }
+
+    private func showAutomationAlert(message: String) {
+        let alert = NSAlert()
+        alert.messageText = "MeetMute Needs Automation Permission"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+        }
     }
 
     private func showNoAppNotification() {

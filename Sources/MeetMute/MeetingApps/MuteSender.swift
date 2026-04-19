@@ -1,6 +1,40 @@
 import Cocoa
 
-func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
+enum MuteError: Error {
+    case automationDenied(appName: String, isSystemEvents: Bool)
+    case appNotRunning(appName: String)
+    case scriptFailed(code: Int, message: String)
+
+    var userMessage: String {
+        switch self {
+        case .automationDenied(let name, let sysEvents):
+            if sysEvents {
+                return "MeetMute needs Automation access to System Events. Enable it in Privacy & Security → Automation."
+            }
+            return "Enable MeetMute → \(name) in Privacy & Security → Automation."
+        case .appNotRunning(let name):
+            return "\(name) isn't running."
+        case .scriptFailed(_, let message):
+            return "Mute failed: \(message)"
+        }
+    }
+}
+
+private func mapAppleScriptError(_ error: NSDictionary, appName: String) -> MuteError {
+    let code = (error[NSAppleScript.errorNumber] as? Int) ?? 0
+    let message = (error[NSAppleScript.errorMessage] as? String) ?? "unknown error"
+    switch code {
+    case -1743:
+        let isSysEvents = message.contains("System Events")
+        return .automationDenied(appName: appName, isSystemEvents: isSysEvents)
+    case -600:
+        return .appNotRunning(appName: appName)
+    default:
+        return .scriptFailed(code: code, message: message)
+    }
+}
+
+func sendMuteKeystroke(to app: RunningMeetingApp) -> Result<Void, MuteError> {
     let def = app.definition
     let bundleId = app.runningApp.bundleIdentifier ?? ""
     let keystroke = ScriptBuilder.keystroke(keyCode: def.keyCode, modifierFlags: def.modifierFlags)
@@ -41,7 +75,7 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
     // tokens. We substitute KEYSTROKE verbatim using plain string replacement.
     guard let rawTemplate = template else {
         Logger.shared.log("mute failed: missing script resource for \(app.processName)", level: .error)
-        return false
+        return .failure(.scriptFailed(code: 0, message: "missing script resource"))
     }
 
     let withEscaped = ScriptBuilder.substitute(
@@ -52,10 +86,16 @@ func sendMuteKeystroke(to app: RunningMeetingApp) -> Bool {
 
     var error: NSDictionary?
     let result = NSAppleScript(source: final)?.executeAndReturnError(&error)
-    return result != nil && error == nil
+    if let error = error {
+        return .failure(mapAppleScriptError(error, appName: app.processName))
+    }
+    guard result != nil else {
+        return .failure(.scriptFailed(code: 0, message: "script compilation failed"))
+    }
+    return .success(())
 }
 
-private func sendBrowserKeystroke(bundleId: String, appName: String, keystroke: String) -> Bool {
+private func sendBrowserKeystroke(bundleId: String, appName: String, keystroke: String) -> Result<Void, MuteError> {
     let tabSwitchBlock: String
     let restoreBlock: String
     let template: ScriptKind
@@ -172,15 +212,25 @@ private func sendBrowserKeystroke(bundleId: String, appName: String, keystroke: 
         """
     default:
         // Firefox — no tab AppleScript support
-        guard let rawTemplate = ScriptBuilder.loadTemplate(.browserMeetSimple) else { return false }
+        guard let rawTemplate = ScriptBuilder.loadTemplate(.browserMeetSimple) else {
+            return .failure(.scriptFailed(code: 0, message: "missing script resource"))
+        }
         let withEscaped = ScriptBuilder.substitute(rawTemplate, values: ["APP_NAME": appName])
         let final = withEscaped.replacingOccurrences(of: "{{KEYSTROKE}}", with: keystroke)
         var error: NSDictionary?
         let result = NSAppleScript(source: final)?.executeAndReturnError(&error)
-        return result != nil && error == nil
+        if let error = error {
+            return .failure(mapAppleScriptError(error, appName: appName))
+        }
+        guard result != nil else {
+            return .failure(.scriptFailed(code: 0, message: "script compilation failed"))
+        }
+        return .success(())
     }
 
-    guard let rawTemplate = ScriptBuilder.loadTemplate(template) else { return false }
+    guard let rawTemplate = ScriptBuilder.loadTemplate(template) else {
+        return .failure(.scriptFailed(code: 0, message: "missing script resource"))
+    }
     // Escape only APP_NAME; the tab/restore blocks are pre-built AppleScript fragments.
     let withEscaped = ScriptBuilder.substitute(rawTemplate, values: ["APP_NAME": appName])
     let final = withEscaped
@@ -190,5 +240,11 @@ private func sendBrowserKeystroke(bundleId: String, appName: String, keystroke: 
 
     var error: NSDictionary?
     let result = NSAppleScript(source: final)?.executeAndReturnError(&error)
-    return result != nil && error == nil
+    if let error = error {
+        return .failure(mapAppleScriptError(error, appName: appName))
+    }
+    guard result != nil else {
+        return .failure(.scriptFailed(code: 0, message: "script compilation failed"))
+    }
+    return .success(())
 }
