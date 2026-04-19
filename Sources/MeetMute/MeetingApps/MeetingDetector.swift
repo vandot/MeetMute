@@ -1,5 +1,22 @@
 import Cocoa
 
+private struct MeetTabCacheEntry {
+    let result: Bool
+    let at: Date
+}
+
+private var meetTabCache: [String: MeetTabCacheEntry] = [:]
+private let meetTabCacheTTL: TimeInterval = 2.0
+private let meetTabCacheQueue = DispatchQueue(label: "com.meetmute.meetTabCache")
+
+func invalidateMeetTabCache(bundleId: String) {
+    meetTabCacheQueue.sync { meetTabCache[bundleId] = nil }
+}
+
+func invalidateAllMeetTabCache() {
+    meetTabCacheQueue.sync { meetTabCache.removeAll() }
+}
+
 struct RunningMeetingApp {
     let definition: MeetingAppDefinition
     let runningApp: NSRunningApplication
@@ -46,6 +63,18 @@ func appHasWindow(pid: pid_t, matching pattern: String) -> Bool {
 }
 
 func browserHasMeetTab(bundleId: String) -> Bool {
+    if let cached = meetTabCacheQueue.sync(execute: { meetTabCache[bundleId] }),
+       Date().timeIntervalSince(cached.at) < meetTabCacheTTL {
+        return cached.result
+    }
+    let fresh = browserHasMeetTabUncached(bundleId: bundleId)
+    meetTabCacheQueue.sync {
+        meetTabCache[bundleId] = MeetTabCacheEntry(result: fresh, at: Date())
+    }
+    return fresh
+}
+
+func browserHasMeetTabUncached(bundleId: String) -> Bool {
     let script: String
     switch bundleId {
     case "com.apple.Safari":

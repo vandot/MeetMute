@@ -221,6 +221,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: NSWorkspace.didActivateApplicationNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(appDidTerminate(_:)),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
     }
 
     @objc private func appDidActivate(_ notification: Notification) {
@@ -228,6 +234,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let bundleId = app.bundleIdentifier,
               allMeetingBundleIds.contains(bundleId) else { return }
         lastActiveMeetingBundleId = bundleId
+    }
+
+    @objc private func appDidTerminate(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              let bundleId = app.bundleIdentifier else { return }
+        invalidateMeetTabCache(bundleId: bundleId)
     }
 
     // MARK: - Hotkey
