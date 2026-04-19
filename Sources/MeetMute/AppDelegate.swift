@@ -244,7 +244,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func copyDiagnostics() {
         let report = DiagnosticsReport.build(
             hotkeyDisplay: hotkeyManager?.hotkeyDisplayString ?? "<not registered>",
-            holdThresholdMs: prefs.hotkeyHoldThresholdMs,
             selectedBundleId: prefs.selectedAppBundleId
         )
         let pb = NSPasteboard.general
@@ -314,13 +313,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setupHotkey() {
         let hk = HotkeyManager(
             keyCode: prefs.hotkeyKeyCode,
-            modifiers: NSEvent.ModifierFlags(rawValue: prefs.hotkeyModifiers),
-            holdThresholdMs: prefs.hotkeyHoldThresholdMs
+            modifiers: NSEvent.ModifierFlags(rawValue: prefs.hotkeyModifiers)
         )
-        hk.onHotkeyTap = { [weak self] in
-            self?.toggleMute()
-        }
-        hk.onHotkeyHoldRelease = { [weak self] in
+        hk.onHotkeyPressed = { [weak self] in
             self?.toggleMute()
         }
         hk.register()

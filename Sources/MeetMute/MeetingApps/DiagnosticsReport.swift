@@ -1,10 +1,10 @@
 import Cocoa
 
 enum DiagnosticsReport {
-    static func build(hotkeyDisplay: String, holdThresholdMs: Int, selectedBundleId: String?) -> String {
+    static func build(hotkeyDisplay: String, selectedBundleId: String?) -> String {
         var lines: [String] = []
         lines.append("MeetMute \(appVersion()) | macOS \(osVersion()) | arch \(arch())")
-        lines.append("Hotkey: \(hotkeyDisplay)  (hold threshold: \(holdThresholdMs)ms)")
+        lines.append("Hotkey: \(hotkeyDisplay)")
         lines.append("Selected app: \(selectedBundleId ?? "auto-detect")")
         lines.append("")
 

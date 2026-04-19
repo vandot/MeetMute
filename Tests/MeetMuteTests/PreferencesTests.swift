@@ -44,10 +44,6 @@ final class PreferencesTests: XCTestCase {
         XCTAssertEqual(prefs.hotkeyModifiers, expected)
     }
 
-    func testHotkeyHoldThresholdDefaultIs250() {
-        XCTAssertEqual(prefs.hotkeyHoldThresholdMs, 250)
-    }
-
     func testHotkeyRoundTrip() {
         prefs.hotkeyKeyCode = 0x23  // P
         let mods = NSEvent.ModifierFlags([.command, .shift]).rawValue

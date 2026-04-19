@@ -7,7 +7,6 @@ final class Preferences {
         static let selectedAppBundleId = "SelectedMeetingAppBundleId"
         static let hotkeyKeyCode = "HotkeyKeyCode"
         static let hotkeyModifiers = "HotkeyModifiers"
-        static let hotkeyHoldThresholdMs = "HotkeyHoldThresholdMs"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -44,11 +43,4 @@ final class Preferences {
         set { defaults.set(Int(bitPattern: newValue), forKey: Key.hotkeyModifiers) }
     }
 
-    var hotkeyHoldThresholdMs: Int {
-        get {
-            if defaults.object(forKey: Key.hotkeyHoldThresholdMs) == nil { return 250 }
-            return defaults.integer(forKey: Key.hotkeyHoldThresholdMs)
-        }
-        set { defaults.set(newValue, forKey: Key.hotkeyHoldThresholdMs) }
-    }
 }

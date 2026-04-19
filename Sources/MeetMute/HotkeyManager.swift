@@ -4,30 +4,25 @@ import Cocoa
 class HotkeyManager {
     private var globalMonitor: Any?
     private var localMonitor: Any?
-    private var keyDownAt: Date?
 
-    var onHotkeyTap: (() -> Void)?
-    var onHotkeyHoldRelease: (() -> Void)?
+    var onHotkeyPressed: (() -> Void)?
 
     private(set) var nsModifiers: NSEvent.ModifierFlags
     private(set) var keyCode: UInt16
-    private let holdThresholdMs: Int
 
     init(
         keyCode: UInt16 = UInt16(kVK_ANSI_M),
-        modifiers: NSEvent.ModifierFlags = [.control, .option],
-        holdThresholdMs: Int = 250
+        modifiers: NSEvent.ModifierFlags = [.control, .option]
     ) {
         self.keyCode = keyCode
         self.nsModifiers = modifiers
-        self.holdThresholdMs = holdThresholdMs
     }
 
     func register() {
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleEvent(event)
         }
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self = self else { return event }
             if self.matchesHotkey(event) {
                 self.handleEvent(event)
@@ -39,46 +34,19 @@ class HotkeyManager {
 
     private func handleEvent(_ event: NSEvent) {
         guard matchesHotkey(event) else { return }
-
-        switch event.type {
-        case .keyDown:
-            if event.isARepeat { return }
-            keyDownAt = Date()
-            Logger.shared.log("hotkey keyDown")
-            onHotkeyTap?()
-
-        case .keyUp:
-            guard let downAt = keyDownAt else { return }
-            keyDownAt = nil
-            let elapsedMs = Int(Date().timeIntervalSince(downAt) * 1000)
-            if elapsedMs > holdThresholdMs {
-                Logger.shared.log("hotkey hold release (\(elapsedMs)ms)")
-                onHotkeyHoldRelease?()
-            } else {
-                Logger.shared.log("hotkey tap (\(elapsedMs)ms)")
-            }
-
-        default:
-            break
-        }
+        if event.isARepeat { return }
+        Logger.shared.log("hotkey pressed")
+        onHotkeyPressed?()
     }
 
     private func matchesHotkey(_ event: NSEvent) -> Bool {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-
-        if event.type == .keyDown {
-            return event.keyCode == keyCode && flags == nsModifiers
-        }
-        if event.type == .keyUp {
-            return event.keyCode == keyCode && keyDownAt != nil
-        }
-        return false
+        return event.keyCode == keyCode && flags == nsModifiers
     }
 
     func unregister() {
         if let m = globalMonitor { NSEvent.removeMonitor(m); globalMonitor = nil }
         if let m = localMonitor { NSEvent.removeMonitor(m); localMonitor = nil }
-        keyDownAt = nil
     }
 
     deinit { unregister() }
