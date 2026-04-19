@@ -7,23 +7,52 @@ final class Logger {
         case info, warn, error
     }
 
+    struct Entry {
+        let at: Date
+        let level: Level
+        let message: String
+    }
+
+    private(set) var enabled: Bool = false
+    private var ring: [Entry] = []
+    private let cap = 500
+    private let queue = DispatchQueue(label: "com.meetmute.logger")
     private let stdoutAttached: Bool
 
     private init() {
         stdoutAttached = isatty(STDOUT_FILENO) != 0
     }
 
-    // Placeholder — full ring buffer + enabled flag land in M4.
-    // In M1 this is a no-op unless the binary is launched from a terminal.
-    func log(_ message: String, level: Level = .info) {
-        guard stdoutAttached else { return }
-        let ts = Self.timestamp()
-        print("[\(ts)] [\(level.rawValue)] \(message)")
+    func setEnabled(_ on: Bool) {
+        queue.sync { self.enabled = on }
     }
 
-    private static func timestamp() -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
-        return formatter.string(from: Date())
+    func log(_ message: String, level: Level = .info) {
+        let entry = Entry(at: Date(), level: level, message: message)
+        queue.sync {
+            if self.enabled {
+                self.ring.append(entry)
+                if self.ring.count > self.cap {
+                    self.ring.removeFirst(self.ring.count - self.cap)
+                }
+            }
+            if self.stdoutAttached {
+                print("[\(Self.format(entry.at))] [\(entry.level.rawValue)] \(entry.message)")
+            }
+        }
+    }
+
+    func snapshot() -> [Entry] {
+        return queue.sync { self.ring }
+    }
+
+    func clear() {
+        queue.sync { self.ring.removeAll() }
+    }
+
+    static func format(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss.SSS"
+        return f.string(from: date)
     }
 }
