@@ -14,6 +14,7 @@ build:
 	cp $(BUILD_DIR)/$(APP_NAME) $(APP_BUNDLE)/Contents/MacOS/
 	cp Resources/Info.plist $(APP_BUNDLE)/Contents/
 	cp Resources/MeetMute.icns $(APP_BUNDLE)/Contents/Resources/
+	cp -R Resources/Scripts $(APP_BUNDLE)/Contents/Resources/
 	codesign --force --sign - $(APP_BUNDLE)
 	@echo "Built $(APP_BUNDLE)"
 

@@ -2,7 +2,7 @@
 
 Mute and unmute any meeting app with a single keyboard shortcut. No more hunting for the mute button.
 
-**⌃ + ⌥ + M** — works from any app, even when your meeting is in the background.
+**⌃ + ⌥ + M** — works from any app, even when your meeting is in the background. Rebind anytime via the menu bar → **Change Hotkey…**.
 
 ## How It Works
 
@@ -33,6 +33,10 @@ Since the app is not signed with an Apple Developer ID, you'll need to right-cli
 - **Automation (Safari/Chrome/Arc)** — optional, only for Google Meet tab detection
 
 All permissions are requested at first launch. MeetMute never accesses your microphone, never records anything, and never connects to the internet.
+
+## Troubleshooting
+
+Open the menu bar → **Debug** → **Enable Logging**, reproduce the issue, then **Copy Diagnostics**. The clipboard will contain a paste-ready report with version, permissions, running meeting apps, and recent log entries.
 
 ## Build from Source
 

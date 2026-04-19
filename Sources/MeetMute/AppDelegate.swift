@@ -6,23 +6,19 @@ import UserNotifications
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var hotkeyManager: HotkeyManager?
-    private var selectedAppIndex: Int? = nil  // nil = auto-detect
-    private let selectedAppKey = "SelectedMeetingApp"
+    private let prefs = Preferences()
     private var lastActiveMeetingBundleId: String? = nil
-    private let meetingBundleIds: Set<String> = Set(supportedApps.flatMap { $0.bundleIdentifiers })
+    private var accessibilityPollTimer: Timer?
+    private var hotkeyRecorderWindow: HotkeyRecorderWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (belt and suspenders with LSUIElement)
         NSApp.setActivationPolicy(.accessory)
 
-        // Load saved preference
-        let saved = UserDefaults.standard.integer(forKey: selectedAppKey)
-        if saved > 0 && saved <= supportedApps.count {
-            selectedAppIndex = saved - 1
-        }
-
         setupStatusBar()
         setupAppActivationTracking()
+
+        ScriptBuilder.verifyAllScriptsPresent()
 
         // Trigger system Accessibility permission dialog if not yet trusted
         let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue(): true] as CFDictionary
@@ -32,10 +28,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if AXIsProcessTrusted() {
             setupHotkey()
         } else {
-            Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            accessibilityPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
                 if AXIsProcessTrusted() {
                     self?.setupHotkey()
                     timer.invalidate()
+                    self?.accessibilityPollTimer = nil
                 }
             }
         }
@@ -46,6 +43,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         requestBrowserAutomationPermissions()
 
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        accessibilityPollTimer?.invalidate()
+        accessibilityPollTimer = nil
     }
 
     // MARK: - Status Bar
@@ -122,7 +124,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // Auto-detect option
                 let autoItem = NSMenuItem(title: "Auto-detect", action: #selector(selectAutoDetect), keyEquivalent: "")
                 autoItem.target = self
-                autoItem.state = selectedAppIndex == nil ? .on : .off
+                autoItem.state = prefs.selectedAppBundleId == nil ? .on : .off
                 menu.addItem(autoItem)
 
                 hasRunningApps = true
@@ -135,10 +137,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 title = appDef.name
             }
 
+            let isSelected: Bool = {
+                guard let selected = self.prefs.selectedAppBundleId else { return false }
+                return appDef.bundleIdentifiers.contains(selected)
+            }()
+
             let item = NSMenuItem(title: title, action: #selector(selectApp(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index
-            item.state = selectedAppIndex == index ? .on : .off
+            item.state = isSelected ? .on : .off
             menu.addItem(item)
         }
 
@@ -162,6 +169,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(loginItem)
 
+        let recorderItem = NSMenuItem(title: "Change Hotkey…", action: #selector(openHotkeyRecorder), keyEquivalent: "")
+        recorderItem.target = self
+        menu.addItem(recorderItem)
+
         // Version
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         let versionItem = NSMenuItem(title: "MeetMute v\(version)", action: nil, keyEquivalent: "")
@@ -170,6 +181,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        let debugItem = NSMenuItem(title: "Debug", action: nil, keyEquivalent: "")
+        let debugMenu = NSMenu()
+
+        let loggingItem = NSMenuItem(
+            title: "Enable Logging",
+            action: #selector(toggleLogging),
+            keyEquivalent: ""
+        )
+        loggingItem.target = self
+        loggingItem.state = Logger.shared.enabled ? .on : .off
+        debugMenu.addItem(loggingItem)
+
+        let diagItem = NSMenuItem(
+            title: "Copy Diagnostics",
+            action: #selector(copyDiagnostics),
+            keyEquivalent: ""
+        )
+        diagItem.target = self
+        debugMenu.addItem(diagItem)
+
+        debugItem.submenu = debugMenu
+        menu.addItem(debugItem)
+
         // Quit
         let quitItem = NSMenuItem(title: "Quit MeetMute", action: #selector(quitApp), keyEquivalent: "q")
         quitItem.target = self
@@ -177,13 +211,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func selectAutoDetect() {
-        selectedAppIndex = nil
-        UserDefaults.standard.set(0, forKey: selectedAppKey)
+        prefs.selectedAppBundleId = nil
     }
 
     @objc private func selectApp(_ sender: NSMenuItem) {
-        selectedAppIndex = sender.tag
-        UserDefaults.standard.set(sender.tag + 1, forKey: selectedAppKey)
+        let def = supportedApps[sender.tag]
+        // Store the first bundle ID (primary); subsequent IDs are aliases of the same app.
+        prefs.selectedAppBundleId = def.bundleIdentifiers.first
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -202,6 +236,44 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSWorkspace.shared.open(URL(string: "https://ko-fi.com/vandot")!)
     }
 
+    @objc private func toggleLogging() {
+        Logger.shared.setEnabled(!Logger.shared.enabled)
+        Logger.shared.log("logging \(Logger.shared.enabled ? "enabled" : "disabled")")
+    }
+
+    @objc private func copyDiagnostics() {
+        let report = DiagnosticsReport.build(
+            hotkeyDisplay: hotkeyManager?.hotkeyDisplayString ?? "<not registered>",
+            selectedBundleId: prefs.selectedAppBundleId
+        )
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(report, forType: .string)
+
+        let content = UNMutableNotificationContent()
+        content.title = "MeetMute"
+        content.body = "Diagnostics copied to clipboard."
+        let req = UNNotificationRequest(identifier: "diagnostics-copied", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req)
+
+        Logger.shared.log("diagnostics copied")
+    }
+
+    @objc private func openHotkeyRecorder() {
+        let window = HotkeyRecorderWindow(
+            initialKeyCode: prefs.hotkeyKeyCode,
+            initialModifiers: NSEvent.ModifierFlags(rawValue: prefs.hotkeyModifiers)
+        ) { [weak self] keyCode, modifiers in
+            guard let self = self else { return }
+            self.prefs.hotkeyKeyCode = keyCode
+            self.prefs.hotkeyModifiers = modifiers.rawValue
+            self.hotkeyManager?.unregister()
+            self.setupHotkey()
+        }
+        hotkeyRecorderWindow = window
+        window.showWindow(nil)
+    }
+
     @objc private func quitApp() {
         NSApp.terminate(nil)
     }
@@ -215,19 +287,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             name: NSWorkspace.didActivateApplicationNotification,
             object: nil
         )
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(appDidTerminate(_:)),
+            name: NSWorkspace.didTerminateApplicationNotification,
+            object: nil
+        )
     }
 
     @objc private func appDidActivate(_ notification: Notification) {
         guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
               let bundleId = app.bundleIdentifier,
-              meetingBundleIds.contains(bundleId) else { return }
+              allMeetingBundleIds.contains(bundleId) else { return }
         lastActiveMeetingBundleId = bundleId
+    }
+
+    @objc private func appDidTerminate(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              let bundleId = app.bundleIdentifier else { return }
+        invalidateMeetTabCache(bundleId: bundleId)
     }
 
     // MARK: - Hotkey
 
     private func setupHotkey() {
-        let hk = HotkeyManager()
+        let hk = HotkeyManager(
+            keyCode: prefs.hotkeyKeyCode,
+            modifiers: NSEvent.ModifierFlags(rawValue: prefs.hotkeyModifiers)
+        )
         hk.onHotkeyPressed = { [weak self] in
             self?.toggleMute()
         }
@@ -254,11 +341,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let runningApps = findRunningMeetingApps()
 
         let target: RunningMeetingApp?
-        if let index = selectedAppIndex, index < supportedApps.count {
+        if let bundleId = prefs.selectedAppBundleId {
             // User selected a specific app
-            let selectedDef = supportedApps[index]
             target = runningApps.first { app in
-                selectedDef.bundleIdentifiers.contains(where: { $0 == app.runningApp.bundleIdentifier })
+                app.definition.bundleIdentifiers.contains(bundleId)
             }
         } else if let lastBundleId = lastActiveMeetingBundleId,
                   let lastActive = runningApps.first(where: { $0.runningApp.bundleIdentifier == lastBundleId }) {
@@ -269,12 +355,58 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             target = runningApps.first
         }
 
+        if let target = target {
+            let reason: String
+            if prefs.selectedAppBundleId != nil {
+                reason = "user-pick"
+            } else if lastActiveMeetingBundleId != nil {
+                reason = "last-active"
+            } else {
+                reason = "fallback-first"
+            }
+            Logger.shared.log("mute target: \(target.runningApp.bundleIdentifier ?? "?") (\(reason))")
+        } else {
+            Logger.shared.log("mute target: none")
+        }
+
         guard let targetApp = target else {
             showNoAppNotification()
             return
         }
 
-        _ = sendMuteKeystroke(to: targetApp)
+        switch sendMuteKeystroke(to: targetApp) {
+        case .success:
+            break
+        case .failure(let err):
+            handleMuteFailure(err)
+        }
+    }
+
+    private func handleMuteFailure(_ err: MuteError) {
+        Logger.shared.log("mute failure: \(err)", level: .error)
+
+        if case .automationDenied(_, let isSysEvents) = err, isSysEvents {
+            showAutomationAlert(message: err.userMessage)
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "MeetMute"
+        content.body = err.userMessage
+        let req = UNNotificationRequest(identifier: "mute-failure", content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(req)
+    }
+
+    private func showAutomationAlert(message: String) {
+        let alert = NSAlert()
+        alert.messageText = "MeetMute Needs Automation Permission"
+        alert.informativeText = message
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Later")
+        if alert.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
+        }
     }
 
     private func showNoAppNotification() {
@@ -304,11 +436,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Browser Automation Permissions
 
     private func requestBrowserAutomationPermissions() {
-        let browserApps: [(bundleId: String, appName: String)] = [
-            ("com.apple.Safari", "Safari"),
-            ("com.google.Chrome", "Google Chrome"),
-            ("company.thebrowser.Browser", "Arc"),
-        ]
+        let browserApps: [(bundleId: String, appName: String)] = supportedApps
+            .filter { $0.isBrowserBased }
+            .flatMap { def in def.bundleIdentifiers.map { ($0, def.name.replacingOccurrences(of: "Google Meet (", with: "").replacingOccurrences(of: ")", with: "")) } }
 
         // System Events permission is needed for sending keystrokes
         let sysScript = "tell application \"System Events\" to return name of first process"

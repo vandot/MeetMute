@@ -8,9 +8,17 @@ let package = Package(
         .executableTarget(
             name: "MeetMute",
             path: "Sources/MeetMute",
+            resources: [
+                .copy("../../Resources/Scripts")
+            ],
             linkerSettings: [
                 .linkedFramework("Carbon")
             ]
+        ),
+        .testTarget(
+            name: "MeetMuteTests",
+            dependencies: ["MeetMute"],
+            path: "Tests/MeetMuteTests"
         )
     ]
 )
