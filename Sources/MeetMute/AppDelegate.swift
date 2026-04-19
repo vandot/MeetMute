@@ -6,19 +6,12 @@ import UserNotifications
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var hotkeyManager: HotkeyManager?
-    private var selectedAppIndex: Int? = nil  // nil = auto-detect
-    private let selectedAppKey = "SelectedMeetingApp"
+    private let prefs = Preferences()
     private var lastActiveMeetingBundleId: String? = nil
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Hide dock icon (belt and suspenders with LSUIElement)
         NSApp.setActivationPolicy(.accessory)
-
-        // Load saved preference
-        let saved = UserDefaults.standard.integer(forKey: selectedAppKey)
-        if saved > 0 && saved <= supportedApps.count {
-            selectedAppIndex = saved - 1
-        }
 
         setupStatusBar()
         setupAppActivationTracking()
@@ -121,7 +114,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 // Auto-detect option
                 let autoItem = NSMenuItem(title: "Auto-detect", action: #selector(selectAutoDetect), keyEquivalent: "")
                 autoItem.target = self
-                autoItem.state = selectedAppIndex == nil ? .on : .off
+                autoItem.state = prefs.selectedAppBundleId == nil ? .on : .off
                 menu.addItem(autoItem)
 
                 hasRunningApps = true
@@ -134,10 +127,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 title = appDef.name
             }
 
+            let isSelected: Bool = {
+                guard let selected = self.prefs.selectedAppBundleId else { return false }
+                return appDef.bundleIdentifiers.contains(selected)
+            }()
+
             let item = NSMenuItem(title: title, action: #selector(selectApp(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index
-            item.state = selectedAppIndex == index ? .on : .off
+            item.state = isSelected ? .on : .off
             menu.addItem(item)
         }
 
@@ -176,13 +174,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func selectAutoDetect() {
-        selectedAppIndex = nil
-        UserDefaults.standard.set(0, forKey: selectedAppKey)
+        prefs.selectedAppBundleId = nil
     }
 
     @objc private func selectApp(_ sender: NSMenuItem) {
-        selectedAppIndex = sender.tag
-        UserDefaults.standard.set(sender.tag + 1, forKey: selectedAppKey)
+        let def = supportedApps[sender.tag]
+        // Store the first bundle ID (primary); subsequent IDs are aliases of the same app.
+        prefs.selectedAppBundleId = def.bundleIdentifiers.first
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -253,11 +251,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let runningApps = findRunningMeetingApps()
 
         let target: RunningMeetingApp?
-        if let index = selectedAppIndex, index < supportedApps.count {
+        if let bundleId = prefs.selectedAppBundleId {
             // User selected a specific app
-            let selectedDef = supportedApps[index]
             target = runningApps.first { app in
-                selectedDef.bundleIdentifiers.contains(where: { $0 == app.runningApp.bundleIdentifier })
+                app.definition.bundleIdentifiers.contains(bundleId)
             }
         } else if let lastBundleId = lastActiveMeetingBundleId,
                   let lastActive = runningApps.first(where: { $0.runningApp.bundleIdentifier == lastBundleId }) {
@@ -303,11 +300,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     // MARK: - Browser Automation Permissions
 
     private func requestBrowserAutomationPermissions() {
-        let browserApps: [(bundleId: String, appName: String)] = [
-            ("com.apple.Safari", "Safari"),
-            ("com.google.Chrome", "Google Chrome"),
-            ("company.thebrowser.Browser", "Arc"),
-        ]
+        let browserApps: [(bundleId: String, appName: String)] = supportedApps
+            .filter { $0.isBrowserBased }
+            .flatMap { def in def.bundleIdentifiers.map { ($0, def.name.replacingOccurrences(of: "Google Meet (", with: "").replacingOccurrences(of: ")", with: "")) } }
 
         // System Events permission is needed for sending keystrokes
         let sysScript = "tell application \"System Events\" to return name of first process"
